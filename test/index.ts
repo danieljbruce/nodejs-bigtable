@@ -1163,5 +1163,32 @@ describe('Bigtable', () => {
         });
       });
     });
+    it('should have failed for the reason that the client was closed', async () => {
+      const entries = [];
+      entries.push({
+        key: 'fake-key-',
+        data: {
+          cf: {
+            q: {
+              timestamp: Math.floor(Date.now() / 1000) * 1000,
+              value: 1,
+            },
+          },
+        },
+      });
+      const table = bigtable.instance('fake-instance').table('fake-table');
+      await bigtable.close();
+      try {
+        await table.getRows();
+        assert.fail(
+          'The request should not have worked because the client was closed'
+        );
+      } catch (err) {
+        assert.deepStrictEqual(
+          err.message,
+          'The client has already been closed.'
+        );
+      }
+    });
   });
 });
