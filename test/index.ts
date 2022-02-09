@@ -31,6 +31,8 @@ const v2 = require('../src/v2');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PKG = require('../../package.json');
 import * as protos from '../protos/protos';
+import {google} from '../protos/protos';
+import {GetRowsOptions} from '../src';
 
 const sinon = sn.createSandbox();
 const {grpc} = new gax.GrpcClient();
@@ -1152,11 +1154,43 @@ describe('Bigtable', () => {
     });
   });
   describe('close', () => {
+    it('invokes readRows with closed client 1', async () => {
+      // let table = bigtable.instance('fake-instance').table('fake-table');
+      // const projectId = bigtable.projectId;
+      const instanceId = 'fake-instance';
+      const tableId = 'fake-table';
+      const expectedError = new Error('The client has already been closed.');
+      await bigtable.close();
+      let table = bigtable.instance(instanceId).table(tableId);
+      try {
+        await table.getRows();
+      } catch (err) {
+        console.log(err);
+      }
+    });
     it('invokes readRows with closed client', async () => {
-      let table = bigtable.instance('fake-instance').table('fake-table');
+      // let table = bigtable.instance('fake-instance').table('fake-table');
+      const projectId = bigtable.projectId;
+      const instanceId = 'fake-instance';
+      const tableId = 'fake-table';
+      const reqOpts = {
+        tableName: `projects/${projectId}/instances/${instanceId}/tables/${tableId}`,
+        appProfileId: bigtable.appProfileId,
+      } as google.bigtable.v2.IReadRowsRequest;
+      const options: GetRowsOptions = {};
+      const retryOpts = {
+        currentRetryAttempt: 0,
+      };
       const expectedError = new Error('The client has already been closed.');
       bigtable.close();
-      const stream = table.getRows();
+      const stream = bigtable.request({
+        client: 'BigtableClient',
+        method: 'readRows',
+        reqOpts,
+        gaxOpts: options.gaxOptions,
+        retryOpts,
+      });
+      // const stream = table.getRows();
       const promise = new Promise((resolve, reject) => {
         stream.on(
             'data',

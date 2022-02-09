@@ -1239,7 +1239,36 @@ describe('Bigtable', () => {
       assert.strictEqual(rows.length, 0);
     });
   });
-
+  describe('close', () => {
+    it('invokes readRows with closed client 1', async () => {
+      // let table = bigtable.instance('fake-instance').table('fake-table');
+      // const projectId = bigtable.projectId;
+      const instanceId = 'fake-instance';
+      const tableId = 'fake-table';
+      const expectedError = new Error('The client has already been closed.');
+      await bigtable.close();
+      let table = bigtable.instance(instanceId).table(tableId);
+      try {
+        await table.getRows();
+      } catch (err) {
+        console.log(err);
+      }
+    });
+    it('invokes readRows with closed client 2', async () => {
+      // let table = bigtable.instance('fake-instance').table('fake-table');
+      // const projectId = bigtable.projectId;
+      const instanceId = 'fake-instance';
+      const tableId = 'fake-table';
+      const expectedError = new Error('The client has already been closed.');
+      await bigtable.close();
+      let table = bigtable.instance(instanceId).table(tableId);
+      try {
+        await table.getRows();
+      } catch (err) {
+        console.log(err);
+      }
+    });
+  });
   describe('backups', () => {
     const CLUSTER = INSTANCE.cluster(CLUSTER_ID);
     let BACKUP: Backup;
