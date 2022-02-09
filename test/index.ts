@@ -24,11 +24,13 @@ import {Cluster} from '../src/cluster.js';
 import {Instance} from '../src/instance.js';
 import {PassThrough} from 'stream';
 import {shouldRetryRequest} from '../src/decorateStatus.js';
+import {generateSampleMessage} from './gapic_bigtable_instance_admin_v2';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const v2 = require('../src/v2');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const PKG = require('../../package.json');
+import * as protos from '../protos/protos';
 
 const sinon = sn.createSandbox();
 const {grpc} = new gax.GrpcClient();
@@ -1150,45 +1152,23 @@ describe('Bigtable', () => {
     });
   });
   describe('close', () => {
-    it('should have failed request after close is called', done => {
-      bigtable.close().then(() => {
-        bigtable.getInstances((err: Error) => {
-          if (err) {
-            done();
-          } else {
-            assert.fail(
-              'The request did not fail, but it should have because the connection is closed'
-            );
-          }
+    it('invokes readRows with closed client', async () => {
+      let table = bigtable.instance('fake-instance').table('fake-table');
+      const expectedError = new Error('The client has already been closed.');
+      bigtable.close();
+      const stream = table.getRows();
+      const promise = new Promise((resolve, reject) => {
+        stream.on(
+            'data',
+            (response: protos.google.bigtable.v2.ReadRowsResponse) => {
+              resolve(response);
+            }
+        );
+        stream.on('error', (err: Error) => {
+          reject(err);
         });
       });
-    });
-    it('should have failed for the reason that the client was closed', async () => {
-      const entries = [];
-      entries.push({
-        key: 'fake-key-',
-        data: {
-          cf: {
-            q: {
-              timestamp: Math.floor(Date.now() / 1000) * 1000,
-              value: 1,
-            },
-          },
-        },
-      });
-      const table = bigtable.instance('fake-instance').table('fake-table');
-      await bigtable.close();
-      try {
-        await table.getRows();
-        assert.fail(
-          'The request should not have worked because the client was closed'
-        );
-      } catch (err) {
-        assert.deepStrictEqual(
-          err.message,
-          'The client has already been closed.'
-        );
-      }
+      await assert.rejects(promise, expectedError);
     });
   });
 });
