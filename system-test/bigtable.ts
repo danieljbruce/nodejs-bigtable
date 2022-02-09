@@ -1245,8 +1245,8 @@ describe('Bigtable', () => {
       // const projectId = bigtable.projectId;
       const instanceId = 'fake-instance';
       const tableId = 'fake-table';
-      const expectedError = new Error('The client has already been closed.');
-      await bigtable.close();
+      // const expectedError = new Error('The client has already been closed.');
+      await bigtable.close(); // The problem with this system test is that close hangs forever in the previous version
       let table = bigtable.instance(instanceId).table(tableId);
       try {
         await table.getRows();
