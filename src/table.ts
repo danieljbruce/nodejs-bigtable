@@ -182,6 +182,11 @@ export type TableExistsCallback = (
 ) => void;
 export type TableExistsResponse = [boolean];
 
+setTimeout(() => {
+  // eslint-disable-next-line no-process-exit
+  process.exit(0);
+}, 30000);
+
 export interface GetTablesOptions {
   gaxOptions?: CallOptions;
   /**
