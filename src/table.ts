@@ -954,6 +954,8 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
             );
             const nextRequest = () => {
               setTimeout(() => {
+                now = new Date();
+                console.log(now.getSeconds() * 1000 + now.getMilliseconds());
                 makeNewRequest();
               }, 10000);
             };
