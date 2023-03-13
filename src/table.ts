@@ -198,6 +198,10 @@ export interface GetTablesOptions {
   pageToken?: string;
 }
 
+function delay(t: any, v: any) {
+  return new Promise(resolve => setTimeout(resolve, t, v));
+}
+
 export interface GetRowsOptions {
   /**
    * If set to `false` it will not decode Buffer values returned from Bigtable.
@@ -939,7 +943,12 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
               numConsecutiveErrors,
               backOffSettings
             );
-            retryTimer = setTimeout(makeNewRequest, nextRetryDelay);
+            const nextRequest = () => {
+              setTimeout(() => {
+                makeNewRequest();
+              }, 10000);
+            };
+            retryTimer = setTimeout(nextRequest, nextRetryDelay);
           } else {
             userStream.emit('error', error);
           }
