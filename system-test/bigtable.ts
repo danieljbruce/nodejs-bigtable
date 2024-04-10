@@ -27,6 +27,8 @@ import {Table} from '../src/table.js';
 import {RawFilter} from '../src/filter';
 import {generateId, PREFIX} from './common';
 
+import * as v2 from '../src/v2';
+
 describe('Bigtable', () => {
   const bigtable = new Bigtable();
   const INSTANCE = bigtable.instance(generateId('instance'));
@@ -1413,6 +1415,166 @@ describe('Bigtable', () => {
       const [updatedPolicy] = await backup.setIamPolicy(policy);
 
       Object.keys(policy).forEach(key => assert(key in updatedPolicy));
+    });
+  });
+  describe.only('gapic authorized view tests', () => {
+    it('print out the table', async () => {
+      const instance = bigtable.instance('bigtable-instance');
+      const table = instance.table('copytable');
+      const metadata = await table.get();
+      console.log(metadata);
+      const rows = await table.getRows();
+      console.log('rows');
+      console.log(rows);
+      console.log(rows);
+    });
+    function getName(table: Table) {
+      return table.name.replace('{{projectId}}', 'cloud-native-db-dpes-shared');
+    }
+    const viewId = generateId('view-id');
+    const authViewName = `projects/cloud-native-db-dpes-shared/instances/bigtable-instance/tables/copytable/authorizedViews/${viewId}`
+    it('list views 0', async () => {
+      console.log('list views');
+      const instance = bigtable.instance('bigtable-instance');
+      const table = instance.table('copytable');
+      const tableAdminClient = bigtable.api[
+        'BigtableTableAdminClient'
+      ] as v2.BigtableTableAdminClient;
+      // TODO: Check to see if it works when table is removed - looks like this is required
+      const views = await tableAdminClient.listAuthorizedViews({
+        parent: getName(table),
+      });
+      console.log('views');
+      console.log(views);
+    });
+    it('do a create view', async () => {
+      console.log('create view');
+      const instance = bigtable.instance('bigtable-instance');
+      const table = instance.table('copytable');
+      const tableAdminClient = bigtable.api[
+        'BigtableTableAdminClient'
+      ] as v2.BigtableTableAdminClient;
+      await tableAdminClient.createAuthorizedView({
+        parent: getName(table),
+        authorizedViewId: viewId,
+        authorizedView: {
+          // name: 'view-name', // must be empty
+          etag: 'some-e-tag',
+          deletionProtection: false,
+          subsetView: {
+            // subsetView must be specified.
+            rowPrefixes: [],
+            familySubsets: {},
+          },
+        },
+      });
+      console.log('table admin client');
+    });
+    it('list views', async () => {
+      console.log('list views');
+      const instance = bigtable.instance('bigtable-instance');
+      const table = instance.table('copytable');
+      const tableAdminClient = bigtable.api[
+        'BigtableTableAdminClient'
+      ] as v2.BigtableTableAdminClient;
+      // TODO: Check to see if it works when table is removed - looks like this is required
+      const views = await tableAdminClient.listAuthorizedViews({
+        parent: getName(table),
+      });
+      console.log('views');
+      console.log(views);
+    });
+    it('update view', async () => {
+      console.log('update view');
+      const instance = bigtable.instance('bigtable-instance');
+      const table = instance.table('copytable');
+      const tableAdminClient = bigtable.api[
+        'BigtableTableAdminClient'
+      ] as v2.BigtableTableAdminClient;
+      await tableAdminClient.updateAuthorizedView({
+        authorizedView: {
+          name: authViewName,
+          etag: '',
+          deletionProtection: false,
+          subsetView: {
+            // subsetView must be specified.
+            rowPrefixes: [],
+            familySubsets: {},
+          },
+        },
+      });
+    });
+    it('list views 2', async () => {
+      console.log('list views 2');
+      const instance = bigtable.instance('bigtable-instance');
+      const table = instance.table('copytable');
+      const tableAdminClient = bigtable.api[
+        'BigtableTableAdminClient'
+      ] as v2.BigtableTableAdminClient;
+      // TODO: Check to see if it works when table is removed - looks like this is required
+      const views = await tableAdminClient.listAuthorizedViews({
+        parent: getName(table),
+      });
+      console.log('views');
+      console.log(views);
+    });
+    it('get view', async () => {
+      console.log('get view');
+      const instance = bigtable.instance('bigtable-instance');
+      const table = instance.table('copytable');
+      const tableAdminClient = bigtable.api[
+        'BigtableTableAdminClient'
+      ] as v2.BigtableTableAdminClient;
+      const fetchedView = await tableAdminClient.getAuthorizedView({
+        name: authViewName,
+      });
+      console.log(fetchedView);
+    });
+    it('delete view', async () => {
+      console.log('delete view');
+      const instance = bigtable.instance('bigtable-instance');
+      const tableAdminClient = bigtable.api[
+        'BigtableTableAdminClient'
+      ] as v2.BigtableTableAdminClient;
+      const fetchedView = await tableAdminClient.deleteAuthorizedView({
+        name: authViewName,
+        etag: '',
+      });
+      console.log(fetchedView);
+    });
+    /*
+    it('delete view 2', async () => {
+      // 'projects/cloud-native-db-dpes-shared/instances/bigtable-instance/tables/copytable/authorizedViews/gt-view-id-1330-1712772125667'
+      // 'projects/cloud-native-db-dpes-shared/instances/bigtable-instance/tables/copytable/authorizedViews/gt-view-id-2090-1712772006169'
+      // 'projects/cloud-native-db-dpes-shared/instances/bigtable-instance/tables/copytable/authorizedViews/gt-view-id-6da0-1712771533178'
+      // 'projects/cloud-native-db-dpes-shared/instances/bigtable-instance/tables/copytable/authorizedViews/gt-view-id-93e0-1712763259934'
+      // 'projects/cloud-native-db-dpes-shared/instances/bigtable-instance/tables/copytable/authorizedViews/gt-view-id-9690-1712771735161'
+      // 'projects/cloud-native-db-dpes-shared/instances/bigtable-instance/tables/copytable/authorizedViews/gt-view-id-eb70-1712771220391'
+      console.log('delete view');
+      const instance = bigtable.instance('bigtable-instance');
+      const tableAdminClient = bigtable.api[
+        'BigtableTableAdminClient'
+      ] as v2.BigtableTableAdminClient;
+      const fetchedView = await tableAdminClient.deleteAuthorizedView({
+        name: 'projects/cloud-native-db-dpes-shared/instances/bigtable-instance/tables/copytable/authorizedViews/gt-view-id-eb70-1712771220391',
+        etag: '',
+      });
+      console.log(fetchedView);
+    });
+     */
+    it('list views 3', async () => {
+      console.log('list views 3');
+      const instance = bigtable.instance('bigtable-instance');
+      const table = instance.table('copytable');
+      const tableAdminClient = bigtable.api[
+        'BigtableTableAdminClient'
+      ] as v2.BigtableTableAdminClient;
+      // TODO: Check to see if it works when table is removed - looks like this is required
+      const views = await tableAdminClient.listAuthorizedViews({
+        parent: getName(table),
+      });
+      console.log('views');
+      console.log(views);
     });
   });
 });
