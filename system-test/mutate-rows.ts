@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {Bigtable} from '../src';
+import {Bigtable, Table} from '../src';
 import {Test} from './testTypes';
 const {tests} =
   require('../../system-test/data/mutate-rows-retry-test.json') as {
@@ -20,13 +20,18 @@ const {tests} =
   };
 
 import * as assert from 'assert';
-import {afterEach, beforeEach, describe, it} from 'mocha';
+import {afterEach, before, beforeEach, describe, it} from 'mocha';
 import * as sinon from 'sinon';
 import {EventEmitter} from 'events';
 import {Entry, PartialFailureError} from '../src/table';
 import {CancellableStream, GrpcClient, GoogleAuth} from 'google-gax';
 import {BigtableClient} from '../src/v2';
 import {PassThrough} from 'stream';
+import {MockServer} from '../src/util/mock-servers/mock-server';
+import {MockService} from '../src/util/mock-servers/mock-service';
+import {BigtableClientMockService} from '../src/util/mock-servers/service-implementations/bigtable-client-mock-service';
+import * as protos from '../protos/protos';
+import {ServerWritableStream} from '@grpc/grpc-js';
 
 const {grpc} = new GrpcClient();
 
@@ -154,6 +159,93 @@ describe('Bigtable/Table', () => {
           done();
         });
         clock.runAll();
+      });
+    });
+  });
+
+  describe.only('mutate with mock server', () => {
+    let mutationBatchesInvoked: Array<{}>;
+    let mutationCallTimes: number[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let responses: any[] | null;
+    let currentRetryAttempt: number;
+
+    let server: MockServer;
+    let service: MockService;
+    let bigtable = new Bigtable();
+    let table: Table;
+
+    before(async () => {
+      // make sure we have everything initialized before starting tests
+      const port = await new Promise<string>(resolve => {
+        server = new MockServer(resolve);
+      });
+      bigtable = new Bigtable({
+        apiEndpoint: `localhost:${port}`,
+      });
+      table = bigtable.instance('fake-instance').table('fake-table');
+      service = new BigtableClientMockService(server);
+    });
+
+    beforeEach(() => {
+      service.setService({
+        MutateRows: (
+          stream: ServerWritableStream<
+            protos.google.bigtable.v2.IMutateRowsRequest,
+            protos.google.bigtable.v2.IMutateRowsResponse
+          >
+        ) => {
+          mutationBatchesInvoked.push(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            stream.request!.entries!.map(entry =>
+              (entry.rowKey as any).asciiSlice()
+            )
+          );
+          mutationCallTimes.push(new Date().getTime());
+          // Dispatches the response through the stream
+          const response = responses!.shift();
+          if (response.entry_codes) {
+            stream.write(entryResponses(response.entry_codes));
+          }
+          stream.end();
+        },
+      });
+    });
+
+    after(async () => {
+      server.shutdown(() => {});
+    });
+
+    tests.forEach(test => {
+      it(test.name, done => {
+        currentRetryAttempt = 0;
+        mutationBatchesInvoked = [];
+        mutationCallTimes = [];
+        responses = test.responses;
+        table.maxRetries = test.max_retries;
+        table.mutate(test.mutations_request, error => {
+          assert.deepStrictEqual(
+            mutationBatchesInvoked,
+            test.mutation_batches_invoked
+          );
+          if (test.errors) {
+            const expectedIndices = test.errors.map(error => {
+              return error.index_in_mutations_request;
+            });
+            assert.deepStrictEqual(error!.name, 'PartialFailureError');
+            const actualIndices = (error as PartialFailureError).errors!.map(
+              error => {
+                return test.mutations_request.indexOf(
+                  (error as {entry: Entry}).entry
+                );
+              }
+            );
+            assert.deepStrictEqual(expectedIndices, actualIndices);
+          } else {
+            assert.ifError(error);
+          }
+          done();
+        });
       });
     });
   });
