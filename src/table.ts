@@ -845,7 +845,10 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
           }
         }
 
-        rowKeys = TableUtils.getRowKeys(rowKeys, lastRowKey);
+        // Remove rowKeys already read.
+        rowKeys = rowKeys.filter(rowKey =>
+          TableUtils.greaterThan(rowKey, lastRowKey as string)
+        );
 
         // If there was a row limit in the original request and
         // we've already read all the rows, end the stream and
