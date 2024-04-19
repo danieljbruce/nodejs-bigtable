@@ -866,6 +866,9 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       }
 
       const reqOpts: any = this.readRowsReqOpts(ranges, rowKeys, options);
+      if (filter) {
+        reqOpts.filter = filter;
+      }
 
       if (hasLimit) {
         reqOpts.rowsLimit = rowsLimit - rowsRead;
@@ -1643,10 +1646,6 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       )
     );
 
-    const filter = options.filter;
-    if (filter) {
-      reqOpts.filter = Filter.parse(filter);
-    }
     return reqOpts;
   }
 
