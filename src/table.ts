@@ -811,9 +811,6 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       };
 
       if (lastRowKey) {
-        const lessThanOrEqualTo = (lhs: string, rhs: string) =>
-          !TableUtils.greaterThan(lhs, rhs);
-
         // Readjust and/or remove ranges based on previous valid row reads.
         // Iterate backward since items may need to be removed.
         for (let index = ranges.length - 1; index >= 0; index--) {
@@ -826,7 +823,10 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
             : range.end;
           const startKeyIsRead =
             !startValue ||
-            lessThanOrEqualTo(startValue as string, lastRowKey as string);
+            TableUtils.lessThanOrEqualTo(
+              startValue as string,
+              lastRowKey as string
+            );
           const endKeyIsNotRead =
             !endValue ||
             (endValue as Buffer).length === 0 ||
