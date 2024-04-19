@@ -865,7 +865,16 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
         }
       }
 
+      // The bug was that the function returns a promise when in fact we just
+      // want the value returned.
       const reqOpts: any = this.readRowsReqOpts(ranges, rowKeys, options);
+      reqOpts.rows.rowRanges = ranges.map(range =>
+        Filter.createRange(
+          range.start as BoundData,
+          range.end as BoundData,
+          'Key'
+        )
+      );
       if (filter) {
         reqOpts.filter = filter;
       }
@@ -1637,14 +1646,6 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     reqOpts.rows.rowKeys = rowKeys.map(
       Mutation.convertToBytes
     ) as {} as Uint8Array[];
-
-    reqOpts.rows.rowRanges = ranges.map(range =>
-      Filter.createRange(
-        range.start as BoundData,
-        range.end as BoundData,
-        'Key'
-      )
-    );
 
     return reqOpts;
   }
