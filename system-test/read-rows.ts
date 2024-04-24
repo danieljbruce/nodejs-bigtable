@@ -19,14 +19,64 @@ const {tests} = require('../../system-test/data/read-rows-retry-test.json') as {
 import * as assert from 'assert';
 import {describe, it, before} from 'mocha';
 import {CreateReadStreamRequest, ReadRowsTest} from './testTypes';
-import {ServiceError, GrpcClient, CallOptions, GoogleError} from 'google-gax';
+import {
+  ServiceError,
+  GrpcClient,
+  CallOptions,
+  GoogleError,
+  RetryOptions,
+} from 'google-gax';
 import {MockServer} from '../src/util/mock-servers/mock-server';
 import {MockService} from '../src/util/mock-servers/mock-service';
 import {BigtableClientMockService} from '../src/util/mock-servers/service-implementations/bigtable-client-mock-service';
-import {ServerWritableStream} from '@grpc/grpc-js';
+import {Metadata, ServerWritableStream} from '@grpc/grpc-js';
+import * as v2 from '../src/v2';
+import * as protobuf from 'protobufjs';
+import {BackoffSettings} from 'google-gax/build/src/gax';
 
 const {grpc} = new GrpcClient();
 
+function emitError<T, U>(stream: ServerWritableStream<T, U>, code: number) {
+  const errorInfoObj = {
+    reason: 'SERVICE_DISABLED',
+    domain: 'googleapis.com',
+    metadata: {
+      consumer: 'projects/455411330361',
+      service: 'translate.googleapis.com',
+    },
+  };
+  // TODO: See if we can parse gax filesystem for status.json
+  const errorProtoJson = require('../../system-test/data/status.json');
+  const root = protobuf.Root.fromJSON(errorProtoJson);
+  const errorInfoType = root.lookupType('ErrorInfo');
+  const buffer = errorInfoType.encode(errorInfoObj).finish() as Buffer;
+  const any = {
+    type_url: 'type.googleapis.com/google.rpc.ErrorInfo',
+    value: buffer,
+  };
+  const status = {code, message: 'test', details: [any]};
+  const Status = root.lookupType('google.rpc.Status');
+  const status_buffer = Status.encode(status).finish() as Buffer;
+  const metadata = new Metadata();
+  metadata.set('grpc-status-details-bin', status_buffer);
+  const error = Object.assign(new GoogleError('test error'), {
+    code, // DEADLINE_EXCEEDED
+    details: 'Failed to read',
+    metadata: metadata,
+  });
+  setImmediate(() => {
+    stream.emit('error', error);
+  });
+  setImmediate(() => {
+    stream.emit('status', status);
+  });
+}
+
+function oldEmitError<T, U>(stream: ServerWritableStream<T, U>, code: number) {
+  const error: GoogleError = new GoogleError();
+  error.code = code;
+  stream.emit('error', error);
+}
 function rowResponseFromServer(rowKey: string) {
   return {
     rowKey: Buffer.from(rowKey).toString('base64'),
@@ -248,6 +298,93 @@ describe('Bigtable/Table', () => {
             error = err as ServiceError;
             checkResults();
           });
+      });
+    });
+  });
+
+  describe.only('readrows directly using mock server', () => {
+    let server: MockServer;
+    let service: MockService;
+    let apiEndpoint: string;
+    let port: string;
+    before(async () => {
+      // make sure we have everything initialized before starting tests
+      port = await new Promise<string>(resolve => {
+        server = new MockServer(resolve);
+      });
+      apiEndpoint = `localhost:${port}`;
+      service = new BigtableClientMockService(server);
+    });
+
+    after(async () => {
+      server.shutdown(() => {});
+    });
+
+    it('testing readrows directly (no handwritten layer)', done => {
+      let retryCounter = 0;
+      service.setService({
+        ReadRows: (
+          stream: ServerWritableStream<
+            protos.google.bigtable.v2.IReadRowsRequest,
+            protos.google.bigtable.v2.IReadRowsResponse
+          >
+        ) => {
+          console.log(`Server retry counter: ${retryCounter++}`);
+          // emitError(stream, 4);
+          emitError(stream, 4);
+        },
+      });
+      const BigtableClient = new v2.BigtableClient({
+        servicePath: 'localhost',
+        apiEndpoint: 'localhost:1234',
+        port: parseInt(port),
+        sslCreds: grpc.credentials.createInsecure(),
+      });
+      const request: protos.google.bigtable.v2.IReadRowsRequest = {
+        tableName:
+          'projects/{{projectId}}/instances/fake-instance/tables/fake-table',
+        rows: {
+          rowKeys: [],
+          rowRanges: [],
+        },
+      };
+      // TODO: Modify these call options as needed.
+      // Set to currently not retry
+      const backOffSettings = {
+        initialRetryDelayMillis: 10,
+        retryDelayMultiplier: 2,
+        maxRetryDelayMillis: 60000,
+      };
+      const shouldRetryFn = function checkRetry(error: GoogleError) {
+        return false; // return [14, 4].includes(error!.code!);
+      };
+      const retry = new RetryOptions([], backOffSettings, shouldRetryFn);
+      const options: CallOptions = {
+        otherArgs: {
+          header: {
+            'bigtable-attempt': 0,
+          },
+        },
+        retry,
+        maxRetries: 3,
+        /*
+        retryRequestOptions: {
+          currentRetryAttempt: 0,
+          noResponseRetries: 0,
+          objectMode: true,
+          shouldRetryFn: () => false,
+        },
+         */
+      };
+      const stream = BigtableClient.readRows(request, options);
+      stream.on('error', (error: any) => {
+        console.log('catching error');
+        console.log(error);
+        done();
+      });
+      stream.on('end', () => {
+        console.log('ending');
+        done();
       });
     });
   });
