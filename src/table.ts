@@ -45,7 +45,8 @@ import {Duplex} from 'stream';
 import {TableUtils} from './utils/table';
 import * as protos from '../protos/protos';
 import {
-  retryOptions, DEFAULT_BACKOFF_SETTINGS,
+  retryOptions,
+  DEFAULT_BACKOFF_SETTINGS,
   RETRYABLE_STATUS_CODES,
 } from './utils/retry-options';
 
