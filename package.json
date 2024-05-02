@@ -50,6 +50,7 @@
     "@google-cloud/precise-date": "^4.0.0",
     "@google-cloud/projectify": "^4.0.0",
     "@google-cloud/promisify": "^4.0.0",
+    "@types/linkify-it": "^3.0.5",
     "arrify": "^2.0.0",
     "concat-stream": "^2.0.0",
     "dot-prop": "^6.0.0",

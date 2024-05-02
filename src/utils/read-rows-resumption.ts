@@ -10,6 +10,7 @@ import {
 } from './retry-options';
 import {Mutation} from '../mutation';
 import {BoundData, Filter} from '../filter';
+import {RequestType} from 'google-gax/build/src/apitypes';
 
 // TOOD: Eliminate duplicates.
 function populateAttemptHeader(attempt: number, gaxOpts?: CallOptions) {
@@ -55,6 +56,7 @@ export class ReadRowsResumptionStrategy {
   getResumeRequest(
     request?: protos.google.bigtable.v2.IReadRowsRequest
   ): protos.google.bigtable.v2.IReadRowsRequest {
+    console.log('in getResumeRequest method');
     const lastRowKey = this.chunkTransformer
       ? this.chunkTransformer.lastRowKey
       : '';
@@ -72,6 +74,7 @@ export class ReadRowsResumptionStrategy {
   }
 
   canResume(error: GoogleError): boolean {
+    console.log('in canResume method');
     // If all the row keys and ranges are read, end the stream
     // and do not retry.
     if (this.rowKeys.length === 0 && this.ranges.length === 0) {
@@ -91,14 +94,14 @@ export class ReadRowsResumptionStrategy {
       gaxOpts?.retry?.backoffSettings || DEFAULT_BACKOFF_SETTINGS;
     // TODO: Add resume request
     const canResume = (error: GoogleError) => {
+      console.log('in canResume arrow');
       return this.canResume(error);
     };
-    const getResumeRequest = (
-      request?: protos.google.bigtable.v2.IReadRowsRequest
-    ) => {
-      return this.getResumeRequest(request);
+    const getResumeRequest = (request: RequestType) => {
+      console.log('in getResumeRequest arrow');
+      return this.getResumeRequest(request) as RequestType;
     };
-    return new RetryOptions([], backoffSettings, canResume);
+    return new RetryOptions([], backoffSettings, canResume, getResumeRequest);
   }
 
   #readRowsReqOpts(
