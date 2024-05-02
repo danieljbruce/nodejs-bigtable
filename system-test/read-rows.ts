@@ -138,7 +138,7 @@ describe('Bigtable/Table', () => {
     });
   });
 
-  describe('createReadStream using mock server', () => {
+  describe.only('createReadStream using mock server', () => {
     let server: MockServer;
     let service: MockService;
     let bigtable = new Bigtable();
@@ -231,7 +231,7 @@ describe('Bigtable/Table', () => {
     });
   });
 
-  describe.only('createReadStream mocking out the gapic layer', () => {
+  describe('createReadStream mocking out the gapic layer', () => {
     // TODO: Add true/false checker for the canResume function.
     // TODO: Add checker for return value of the resumption function.
 

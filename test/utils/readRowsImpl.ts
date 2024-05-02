@@ -25,7 +25,7 @@ const DEBUG = process.env.BIGTABLE_TEST_DEBUG === 'true';
 
 export function debugLog(text: string) {
   if (DEBUG) {
-    console.log(text);
+    // console.log(text);
   }
 }
 
@@ -173,6 +173,7 @@ export function readRowsImpl(
       protos.google.bigtable.v2.IReadRowsResponse
     >
   ): Promise<void> => {
+    console.log('In readrows implementation');
     prettyPrintRequest(stream.request);
 
     let stopWaiting: () => void = () => {};
@@ -273,6 +274,7 @@ export function readRowsImpl(
           const error = new GoogleError('Uh oh');
           error.code = Status.ABORTED;
           stream.emit('error', error);
+          stream.emit('status', '');
           cancelled = true;
           break;
         }
