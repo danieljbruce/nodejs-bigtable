@@ -21,7 +21,13 @@ import {google} from '../protos/protos';
 import * as assert from 'assert';
 import {describe, it, before} from 'mocha';
 import {ReadRowsTest} from './testTypes';
-import {ServiceError, GrpcClient, CallOptions, GoogleError, RetryOptions} from 'google-gax';
+import {
+  ServiceError,
+  GrpcClient,
+  CallOptions,
+  GoogleError,
+  RetryOptions,
+} from 'google-gax';
 import {MockServer} from '../src/util/mock-servers/mock-server';
 import {MockService} from '../src/util/mock-servers/mock-service';
 import {BigtableClientMockService} from '../src/util/mock-servers/service-implementations/bigtable-client-mock-service';
@@ -30,7 +36,11 @@ import * as v2 from '../src/v2';
 import * as gax from 'google-gax';
 import {StreamProxy} from 'google-gax/build/src/streamingCalls/streaming';
 import * as mocha from 'mocha';
-import {createReadStreamShouldRetryFn, DEFAULT_BACKOFF_SETTINGS, retryOptions} from '../src/utils/retry-options';
+import {
+  createReadStreamShouldRetryFn,
+  DEFAULT_BACKOFF_SETTINGS,
+  retryOptions,
+} from '../src/utils/retry-options';
 import {ReadRowsResumptionStrategy} from '../src/utils/read-rows-resumption';
 import {RequestType} from 'google-gax/build/src/apitypes';
 
