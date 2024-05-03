@@ -143,6 +143,7 @@ describe('Bigtable/Table', () => {
     let service: MockService;
     let bigtable = new Bigtable();
     let table: Table;
+    let serverCounter = 0;
     before(async () => {
       // make sure we have everything initialized before starting tests
       const port = await new Promise<string>(resolve => {
@@ -195,7 +196,7 @@ describe('Bigtable/Table', () => {
               protos.google.bigtable.v2.IReadRowsResponse
             >
           ) => {
-            console.log('server call');
+            console.log(`server call ${serverCounter++}`);
             const response = responses!.shift();
             assert(response);
             rowKeysRead.push([]);
@@ -204,12 +205,15 @@ describe('Bigtable/Table', () => {
               stream.write({
                 chunks: response.row_keys.map(rowResponseFromServer),
               });
+            } else {
+              stream.write({});
             }
             if (response.end_with_error) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const error: any = new Error();
               error.code = response.end_with_error;
               stream.emit('error', error);
+              // stream.emit('status', '');
             } else {
               stream.end();
             }
@@ -221,7 +225,7 @@ describe('Bigtable/Table', () => {
           .on('end', () => {
             endCalled = true;
             console.log('catching error');
-            // checkResults();
+            checkResults();
           })
           .on('error', err => {
             error = err as ServiceError;
