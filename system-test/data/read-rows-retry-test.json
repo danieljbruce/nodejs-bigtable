@@ -60,7 +60,7 @@
         }
       ],
       "responses": [
-        { "row_keys": [], "end_with_error": 4 },
+        { "end_with_error": 4 },
         { "end_with_error": 4 },
         { "end_with_error": 4 },
         { "end_with_error": 4 }
@@ -144,7 +144,7 @@
         }]
       },
       "request_options": [
-        { "rowKeys": [], 
+        { "rowKeys": [],
           "rowRanges": [
           { "startKeyClosed": "a", "endKeyClosed": "c" },
           { "startKeyClosed": "x", "endKeyClosed": "z" }
