@@ -1,20 +1,16 @@
 {
   "tests": [
     {
-      "name": "should retry the same field entry",
-      "max_retries": 3,
+      "name": "should not retry unretriable errors",
+      "max_retries": 1,
       "mutations_request": [{}, {}],
       "responses": [
-        { "code": 200, "entry_codes": [ 0, 4] },
-        { "code": 200, "entry_codes": [ 0 ] }
+        { "end_with_error": 3}
       ],
       "mutation_batches_invoked": [
-        [ "", "" ],
-        [ "" ]
+        [ "", "" ]
       ],
-      "errors":  [
-        { "index_in_mutations_request": 1 }
-      ]
+      "error": 3
     }
   ]
 }
