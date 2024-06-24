@@ -89,8 +89,7 @@
         { "index_in_mutations_request": 2 },
         { "index_in_mutations_request": 5 }
       ]
-    },
-    {
+    }, {
       "name": "considers network errors towards the retry count",
       "max_retries": 3,
       "mutations_request": [
@@ -99,7 +98,9 @@
         { "method": "insert", "key": "baz", "data": {} }
       ],
       "responses": [
-        { "code": 200, "entry_codes": [ 0, 4, 0 ] },
+        { "code": 429 },
+        { "code": 200, "entry_codes": [ 4 ] },
+        { "code": 200, "entry_codes": [ 4 ] },
         { "code": 200 }
       ],
       "mutation_batches_invoked": [
