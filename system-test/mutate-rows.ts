@@ -29,6 +29,7 @@ import {MockService} from '../src/util/mock-servers/mock-service';
 import {BigtableClientMockService} from '../src/util/mock-servers/service-implementations/bigtable-client-mock-service';
 import * as protos from '../protos/protos';
 import {ServerWritableStream} from '@grpc/grpc-js';
+import {GoogleError, ServiceError} from 'google-gax';
 
 function entryResponses(statusCodes: number[]) {
   return {
@@ -40,7 +41,8 @@ function entryResponses(statusCodes: number[]) {
 }
 
 describe('Bigtable/Table', () => {
-  describe('mutate with mock server', () => {
+  describe.only('mutate with mock server', () => {
+    const requests = [];
     let mutationBatchesInvoked: Array<{}>;
     let mutationCallTimes: number[];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,6 +74,7 @@ describe('Bigtable/Table', () => {
             protos.google.bigtable.v2.IMutateRowsResponse
           >
         ) => {
+          requests.push(stream.request!);
           mutationBatchesInvoked.push(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             stream.request!.entries!.map(entry =>
@@ -84,7 +87,13 @@ describe('Bigtable/Table', () => {
           if (response.entry_codes) {
             stream.write(entryResponses(response.entry_codes));
           }
-          stream.end();
+          if (response.end_with_error) {
+            const error: GoogleError = new GoogleError();
+            error.code = response.end_with_error;
+            stream.emit('error', error);
+          } else {
+            stream.end();
+          }
         },
       });
     });
@@ -119,7 +128,15 @@ describe('Bigtable/Table', () => {
             );
             assert.deepStrictEqual(expectedIndices, actualIndices);
           } else {
-            assert.ifError(error);
+            if (test.error) {
+              // If the test is expecting an error.
+              // Make sure that the error code matches the expected error code.
+              assert.strictEqual((error as ServiceError)!.code, test.error);
+            } else {
+              // If the test is not expecting an error.
+              // Fail the test with the error that mutate returns.
+              assert.ifError(error);
+            }
           }
           done();
         });
