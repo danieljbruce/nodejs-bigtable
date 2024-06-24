@@ -41,7 +41,7 @@ function entryResponses(statusCodes: number[]) {
 }
 
 describe('Bigtable/Table', () => {
-  describe.only('mutate with mock server', () => {
+  describe('mutate with mock server', () => {
     const requests = [];
     let mutationBatchesInvoked: Array<{}>;
     let mutationCallTimes: number[];
