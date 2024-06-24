@@ -98,10 +98,10 @@
         { "method": "insert", "key": "baz", "data": {} }
       ],
       "responses": [
+        { "code": 200, "entry_codes": [ 0, 4, 0 ] },
         { "code": 429 },
         { "code": 200, "entry_codes": [ 4 ] },
-        { "code": 200, "entry_codes": [ 4 ] },
-        { "code": 200 }
+        { "code": 200, "entry_codes": [ 4 ] }
       ],
       "mutation_batches_invoked": [
         [ "foo", "bar", "baz" ],
@@ -118,15 +118,12 @@
       "max_retries": 3,
       "mutations_request": [{}, {}],
       "responses": [
-        { "code": 200, "entry_codes": [ 0, 4] },
-        { "code": 200, "entry_codes": [ 0 ] }
+        { "entry_codes": [ 0, 4] },
+        { "entry_codes": [ 0 ] }
       ],
       "mutation_batches_invoked": [
         [ "", "" ],
         [ "" ]
-      ],
-      "errors":  [
-        { "index_in_mutations_request": 1 }
       ]
     },
     {
