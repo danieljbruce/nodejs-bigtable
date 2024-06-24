@@ -1418,13 +1418,16 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     };
 
     const onBatchResponse = (err: ServiceError | null) => {
+      console.log('gets error');
       // Return if the error happened before a request was made
       if (numRequestsMade === 0) {
         callback(err);
         return;
       }
 
+      console.log('received error');
       if (isRetryable(err)) {
+        console.log('retrying');
         const backOffSettings =
           options.gaxOptions?.retry?.backoffSettings ||
           DEFAULT_BACKOFF_SETTINGS;
@@ -1481,6 +1484,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
         );
       }
 
+      console.log('calling from handwritten layer');
       this.bigtable
         .request<google.bigtable.v2.MutateRowsResponse>({
           client: 'BigtableClient',

@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "should not retry unretriable errors",
+      "max_retries": 1,
+      "mutations_request": [],
+      "responses": [
+        { "end_with_error": 3}
+      ],
+      "mutation_batches_invoked": [
+        [ "", "" ]
+      ],
+      "error": 3
+    }
+  ]
+}

@@ -1235,6 +1235,7 @@ export class BigtableClient {
     request?: protos.google.bigtable.v2.IMutateRowsRequest,
     options?: CallOptions
   ): gax.CancellableStream {
+    console.log('mutateRows');
     request = request || {};
     options = options || {};
     options.otherArgs = options.otherArgs || {};

@@ -41,7 +41,7 @@ function entryResponses(statusCodes: number[]) {
 }
 
 describe('Bigtable/Table', () => {
-  describe('mutate with mock server', () => {
+  describe.only('mutate with mock server', () => {
     const requests = [];
     let mutationBatchesInvoked: Array<{}>;
     let mutationCallTimes: number[];
@@ -74,6 +74,7 @@ describe('Bigtable/Table', () => {
             protos.google.bigtable.v2.IMutateRowsResponse
           >
         ) => {
+          console.log('entering service');
           requests.push(stream.request!);
           mutationBatchesInvoked.push(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
