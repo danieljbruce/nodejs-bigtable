@@ -2597,21 +2597,6 @@ describe('Bigtable/Table', () => {
         };
       });
 
-      it('should not retry unretriable errors', done => {
-        const unretriableError = new Error('not retryable') as ServiceError;
-        unretriableError.code = 3; // INVALID_ARGUMENT
-        emitters = [
-          ((stream: Writable) => {
-            stream.emit('error', unretriableError);
-          }) as {} as EventEmitter,
-        ];
-        table.maxRetries = 1;
-        table.mutate(entries, () => {
-          assert.strictEqual(entryRequests.length, 1);
-          done();
-        });
-      });
-
       it('should retry retryable errors', done => {
         const error = new Error('retryable') as ServiceError;
         error.code = 14; // Unavailable

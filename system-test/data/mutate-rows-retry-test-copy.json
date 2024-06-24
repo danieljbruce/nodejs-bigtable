@@ -127,6 +127,30 @@
       "errors":  [
         { "index_in_mutations_request": 1 }
       ]
+    },
+    {
+      "name": "should not retry unretriable errors",
+      "max_retries": 1,
+      "mutations_request": [{}, {}],
+      "responses": [
+        { "end_with_error": 3}
+      ],
+      "mutation_batches_invoked": [
+        [ "", "" ]
+      ],
+      "error": 3
+    },
+    {
+      "name": "should retry retryable errors",
+      "max_retries": 1,
+      "mutations_request": [{}, {}],
+      "responses": [
+        { "end_with_error": 14},
+        {}
+      ],
+      "mutation_batches_invoked": [
+        ["", ""],["", ""]
+      ]
     }
   ]
 }
