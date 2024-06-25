@@ -162,6 +162,17 @@
         ["", ""],["", ""]
       ],
       "error": 14
+    },
+    {
+      "name": "should not send error when pendingEntryIndices is 0",
+      "max_retries": 1,
+      "mutations_request": [],
+      "responses": [
+        { "entry_codes": [], "end_with_error": 3}
+      ],
+      "mutation_batches_invoked": [
+        []
+      ]
     }
   ]
 }
