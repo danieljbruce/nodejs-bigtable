@@ -40,7 +40,7 @@ function entryResponses(statusCodes: number[]) {
   };
 }
 
-describe('Bigtable/Table', () => {
+describe.only('Bigtable/Table', () => {
   describe('mutate with mock server', () => {
     const requests = [];
     let mutationBatchesInvoked: Array<{}>;
