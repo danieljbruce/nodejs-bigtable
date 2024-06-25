@@ -1476,11 +1476,10 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
         // separate scope of work.
         options.gaxOptions.retry = new RetryOptions(
           [],
-          DEFAULT_BACKOFF_SETTINGS,
-          () => false
+          DEFAULT_BACKOFF_SETTINGS
         );
       }
-
+      options.gaxOptions.maxRetries = 0;
       this.bigtable
         .request<google.bigtable.v2.MutateRowsResponse>({
           client: 'BigtableClient',
