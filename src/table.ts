@@ -14,7 +14,7 @@
 
 import {promisifyAll} from '@google-cloud/promisify';
 import arrify = require('arrify');
-import {RetryOptions, ServiceError} from 'google-gax';
+import {GoogleError, RetryOptions, ServiceError} from 'google-gax';
 import {BackoffSettings} from 'google-gax/build/src/gax';
 import {PassThrough, Transform, TransformOptions} from 'stream';
 
@@ -49,6 +49,7 @@ import {
   RETRYABLE_STATUS_CODES,
 } from './utils/retry-options';
 import {ReadRowsResumptionStrategy} from './utils/read-rows-resumption';
+import {MutateRowsResumptionStrategy} from './utils/mutate-rows-resumption';
 
 // (1=CANCELLED)
 const IGNORED_STATUS_CODES = new Set([1]);
@@ -1386,6 +1387,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     optionsOrCallback?: MutateOptions | MutateCallback,
     cb?: MutateCallback
   ): void | Promise<MutateResponse> {
+    let stream: AbortableDuplex | null;
     const callback =
       typeof optionsOrCallback === 'function' ? optionsOrCallback : cb!;
     const options =
@@ -1394,48 +1396,53 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       (a, b) => a.concat(b),
       []
     );
-
-    let numRequestsMade = 0;
-
     const maxRetries = is.number(this.maxRetries) ? this.maxRetries! : 3;
-    const pendingEntryIndices = new Set(
-      entries.map((entry: Entry, index: number) => index)
+    const tableStrategyInfo = {
+      tableName: this.name,
+      appProfileId: this.bigtable.appProfileId,
+    };
+    const strategy = new MutateRowsResumptionStrategy(
+      entries,
+      maxRetries,
+      tableStrategyInfo,
+      options
     );
     const entryToIndex = new Map(
       entries.map((entry: Entry, index: number) => [entry, index])
     );
     const mutationErrorsByEntryIndex = new Map();
 
-    const isRetryable = (err: ServiceError | null) => {
-      // Don't retry if there are no more entries or retry attempts
-      if (pendingEntryIndices.size === 0 || numRequestsMade >= maxRetries + 1) {
-        return false;
-      }
-      // If the error is empty but there are still outstanding mutations,
-      // it means that there are retryable errors in the mutate response
-      // even when the RPC succeeded
-      return !err || RETRYABLE_STATUS_CODES.has(err.code);
-    };
-
-    const onBatchResponse = (err: ServiceError | null) => {
+    const onBatchResponse = (err: GoogleError | null) => {
       // Return if the error happened before a request was made
-      if (numRequestsMade === 0) {
+      /*
+      if (strategy.numRequestsMade === 0) {
         callback(err);
         return;
       }
 
-      if (isRetryable(err)) {
+      if (strategy.canResume(err)) {
         const backOffSettings =
           options.gaxOptions?.retry?.backoffSettings ||
           DEFAULT_BACKOFF_SETTINGS;
-        const nextDelay = getNextDelay(numRequestsMade, backOffSettings);
+        const nextDelay = getNextDelay(
+          strategy.numRequestsMade,
+          backOffSettings
+        );
         setTimeout(makeNextBatchRequest, nextDelay);
         return;
+      } else {
+        if (stream) {
+          stream.emit('error', err);
+        }
+        callback(err);
+        return;
       }
+      */
 
+      // TODO: Move the following block downstream.
       // If there's no more pending mutations, set the error
       // to null
-      if (pendingEntryIndices.size === 0) {
+      if (strategy.pendingEntryIndices.size === 0) {
         err = null;
       }
 
@@ -1449,61 +1456,37 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     };
 
     const makeNextBatchRequest = () => {
-      const entryBatch = entries.filter((entry: Entry, index: number) => {
-        return pendingEntryIndices.has(index);
-      });
-
-      const reqOpts = {
-        tableName: this.name,
-        appProfileId: this.bigtable.appProfileId,
-        entries: options.rawMutation
-          ? entryBatch
-          : entryBatch.map(Mutation.parse),
-      };
-
       options.gaxOptions = populateAttemptHeader(
-        numRequestsMade,
+        strategy.numRequestsMade,
         options.gaxOptions
       );
-      if (
-        options.gaxOptions?.retry === undefined &&
-        options.gaxOptions?.retryRequestOptions === undefined
-      ) {
-        // For now gax will not do any retries for table.mutate unless
-        // the user specifically provides retry or retryRequestOptions in the
-        // call.
-        // Moving retries to gax for table.mutate will be done in a
-        // separate scope of work.
-        options.gaxOptions.retry = new RetryOptions(
-          [],
-          DEFAULT_BACKOFF_SETTINGS,
-          () => false
-        );
-      }
-      options.gaxOptions.maxRetries = 0;
-      this.bigtable
+      options.gaxOptions.retry = strategy.toRetryOptions(options.gaxOptions);
+      // TODO: Set maxRetries properly.
+      options.gaxOptions.maxRetries = maxRetries;
+      const reqOpts = strategy.getResumeRequest();
+      stream = this.bigtable
         .request<google.bigtable.v2.MutateRowsResponse>({
           client: 'BigtableClient',
           method: 'mutateRows',
           reqOpts,
           gaxOpts: options.gaxOptions,
         })
-        .on('error', (err: ServiceError) => {
+        .on('error', (err: GoogleError) => {
           onBatchResponse(err);
         })
         .on('data', (obj: google.bigtable.v2.IMutateRowsResponse) => {
           obj.entries!.forEach(entry => {
-            const originalEntry = entryBatch[entry.index as number];
+            const originalEntry = strategy.entryBatch[entry.index as number];
             const originalEntriesIndex = entryToIndex.get(originalEntry)!;
 
             // Mutation was successful.
             if (entry.status!.code === 0) {
-              pendingEntryIndices.delete(originalEntriesIndex);
+              strategy.pendingEntryIndices.delete(originalEntriesIndex);
               mutationErrorsByEntryIndex.delete(originalEntriesIndex);
               return;
             }
             if (!RETRYABLE_STATUS_CODES.has(entry.status!.code!)) {
-              pendingEntryIndices.delete(originalEntriesIndex);
+              strategy.pendingEntryIndices.delete(originalEntriesIndex);
             }
             const errorDetails = entry.status;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1512,7 +1495,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
           });
         })
         .on('end', onBatchResponse);
-      numRequestsMade++;
+      strategy.numRequestsMade++;
     };
 
     makeNextBatchRequest();
@@ -1971,7 +1954,7 @@ export interface GoogleInnerError {
 
 export class PartialFailureError extends Error {
   errors?: GoogleInnerError[];
-  constructor(errors: GoogleInnerError[], rpcError?: ServiceError | null) {
+  constructor(errors: GoogleInnerError[], rpcError?: GoogleError | null) {
     super();
     this.errors = errors;
     this.name = 'PartialFailureError';
