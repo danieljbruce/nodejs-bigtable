@@ -42,6 +42,7 @@ export class MutateRowsResumptionStrategy {
   }
 
   getResumeRequest(): protos.google.bigtable.v2.IMutateRowsRequest {
+    console.log('getResumeRequest');
     this.entryBatch = this.entries.filter((entry: Entry, index: number) => {
       return this.pendingEntryIndices.has(index);
     });
@@ -53,6 +54,7 @@ export class MutateRowsResumptionStrategy {
   }
 
   canResume(error: GoogleError | null): boolean {
+    console.log('canResume');
     if (this.numRequestsMade === 0) {
       return false;
     }
