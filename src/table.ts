@@ -1476,7 +1476,8 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
         // separate scope of work.
         options.gaxOptions.retry = new RetryOptions(
           [],
-          DEFAULT_BACKOFF_SETTINGS
+          DEFAULT_BACKOFF_SETTINGS,
+          () => false
         );
       }
       options.gaxOptions.maxRetries = 0;
