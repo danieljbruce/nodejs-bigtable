@@ -169,6 +169,74 @@ describe('Bigtable/Table', () => {
     });
   });
 
+  it.only('makes another request too early', () => {
+    const bigtable = new Bigtable();
+    const TABLE_ID = 'tab1';
+    const COLUMN_FAMILY_ID = 'col_fam_id1';
+    const COLUMN_QUALIFIER = 'col-name1';
+    const INSTANCE_ID = 'instance1';
+
+    if (!INSTANCE_ID) {
+      throw new Error('Environment variables for INSTANCE_ID must be set!');
+    }
+
+    const prepareTable = async ({instance, N}: {instance: any; N: any}) => {
+      const table = instance.table(TABLE_ID);
+      console.log(`Creating table ${TABLE_ID}`);
+      const options = {
+        families: [
+          {
+            name: COLUMN_FAMILY_ID,
+            rule: {
+              versions: 1,
+            },
+          },
+        ],
+      };
+
+      console.log('populating table');
+      await table.create(options);
+
+      const rowsToInsert = [
+        ...Array.from(Array(N).keys()).map(i => ({
+          key: `row_key_${('00' + i).slice(-3)}`,
+          data: {
+            [COLUMN_FAMILY_ID]: {
+              [COLUMN_QUALIFIER]: {
+                timestamp: new Date(),
+                value: `${i}`,
+              },
+            },
+          },
+        })),
+      ];
+      await table.insert(rowsToInsert);
+      return table;
+    };
+    const sleep = (ms: any) => {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    };
+    (async () => {
+      try {
+        // setup
+        const bigtableClient = new Bigtable();
+        const instance = bigtableClient.instance(INSTANCE_ID);
+        const table = await prepareTable({instance: instance, N: 150});
+
+        console.log('read rows');
+        const stream = table.createReadStream({start: 'a', end: 'z'});
+
+        for await (const row of stream) {
+          console.log(row.id, row.data);
+          await sleep(50);
+        }
+        console.log('No more data in the stream');
+      } catch (error) {
+        console.error('Something went wrong:', error);
+      }
+    })();
+  });
+
   describe('createReadStream using mock server', () => {
     let server: MockServer;
     let service: MockService;
