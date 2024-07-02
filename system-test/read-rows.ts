@@ -182,6 +182,23 @@ describe('Bigtable/Table', () => {
 
     const prepareTable = async ({instance, N}: {instance: any; N: any}) => {
       const table = instance.table(TABLE_ID);
+      console.log('Create the instance if it doesnt exist');
+      const [exists] = await instance.exists();
+      if (!exists) {
+        console.log(`Creating instance ${INSTANCE_ID}`);
+        await instance.create({
+          clusters: [
+            {
+              id: 'some-cluster-id',
+              location: 'us-east1-c',
+              nodes: 3,
+            },
+          ],
+          labels: {
+            time_created: Date.now(),
+          },
+        });
+      }
       console.log(`Creating table ${TABLE_ID}`);
       const options = {
         families: [
