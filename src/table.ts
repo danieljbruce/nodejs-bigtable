@@ -798,7 +798,11 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
 
       const lastRowKey = chunkTransformer ? chunkTransformer.lastRowKey : '';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      chunkTransformer = new ChunkTransformer({decode: options.decode} as any);
+      chunkTransformer = new ChunkTransformer({
+        writableHighWaterMark: 0,
+        readableHighWaterMark: 0,
+        decode: options.decode,
+      } as any);
 
       const reqOpts = {
         tableName: this.name,
