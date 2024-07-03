@@ -746,7 +746,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     }
 
     let chunkTransformer: ChunkTransformer;
-    let rowStream: Duplex;
+    let rowStream: typeof pumpify;
 
     let userCanceled = false;
     const userStream = new PassThrough({
@@ -914,6 +914,8 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       activeRequestStream = requestStream!;
 
       const toRowStream = new Transform({
+        readableHighWaterMark: 0,
+        writableHighWaterMark: 0,
         transform: (rowData, _, next) => {
           console.log(`in toRowStream ${rowData.key}`);
           if (
@@ -933,7 +935,10 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
         objectMode: true,
       });
 
-      rowStream = pumpify.obj([requestStream, chunkTransformer, toRowStream]);
+      const Pumpify = pumpify.ctor({highWaterMark: 0, objectMode: true});
+      rowStream = new Pumpify();
+      rowStream.setPipeline(requestStream, chunkTransformer, toRowStream);
+      // rowStream = pumpify.obj([requestStream, chunkTransformer, toRowStream]);
 
       // Retry on "received rst stream" errors
       const isRstStreamError = (error: ServiceError): boolean => {
@@ -976,7 +981,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
             userStream.emit('error', error);
           }
         })
-        .on('data', _ => {
+        .on('data', () => {
           // Reset error count after a successful read so the backoff
           // time won't keep increasing when as stream had multiple errors
           numConsecutiveErrors = 0;
