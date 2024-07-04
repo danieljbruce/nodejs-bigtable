@@ -363,6 +363,7 @@ export class ChunkTransformer extends Transform {
   moveToNextState(chunk: Chunk): void {
     const row = this.row;
     if (chunk.commitRow) {
+      console.log('pushing row');
       this.push(row);
       this.commit();
       this.lastRowKey = row!.key;

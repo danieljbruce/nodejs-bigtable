@@ -744,14 +744,13 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     if (options.filter) {
       filter = Filter.parse(options.filter);
     }
-
-    let chunkTransformer: ChunkTransformer;
     let rowStream: typeof pumpify;
 
     let userCanceled = false;
     const userStream = new PassThrough({
       objectMode: true,
       readableHighWaterMark: 0,
+      writableHighWaterMark: 0,
       transform(row, _encoding, callback) {
         if (userCanceled) {
           callback();
@@ -791,18 +790,18 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       return originalEnd(chunk, encoding, cb);
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chunkTransformer = new ChunkTransformer({
+      writableHighWaterMark: 0,
+      readableHighWaterMark: 0,
+      decode: options.decode,
+    } as any);
     const makeNewRequest = () => {
       // Avoid cancelling an expired timer if user
       // cancelled the stream in the middle of a retry
       retryTimer = null;
 
       const lastRowKey = chunkTransformer ? chunkTransformer.lastRowKey : '';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      chunkTransformer = new ChunkTransformer({
-        writableHighWaterMark: 0,
-        readableHighWaterMark: 0,
-        decode: options.decode,
-      } as any);
 
       const reqOpts = {
         tableName: this.name,
