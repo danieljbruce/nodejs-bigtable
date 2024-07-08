@@ -769,6 +769,8 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     // the server into data that can be consumed by the user.
     const chunkTransformer: ChunkTransformer = new ChunkTransformer({
       decode: options.decode,
+      readableHighWaterMark: 0,
+      writableHighWaterMark: 0,
     } as TransformOptions);
 
     // This defines a strategy object which is used for deciding if the client
@@ -807,6 +809,8 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     // transform can be used to prepare the data into row objects for the user
     // or block more data from being emitted if the stream has been cancelled.
     const toRowStream = new Transform({
+      readableHighWaterMark: 0,
+      writableHighWaterMark: 0,
       transform: (rowData, _, next) => {
         if (
           userCanceled ||
