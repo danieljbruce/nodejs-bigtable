@@ -318,7 +318,7 @@ describe('Bigtable/ReadRows', () => {
     });
   });
 
-  it.skip('should return row data in the right order', done => {
+  it.only('should return row data in the right order', done => {
     // 1000 rows must be enough to reproduce issues with losing the data and to create backpressure
     const keyFrom = undefined;
     const keyTo = undefined;
@@ -343,6 +343,9 @@ describe('Bigtable/ReadRows', () => {
         const stream = table.createReadStream({
           start: '00000000',
           end: '00000150',
+        });
+        stream.on('end', () => {
+          console.log('user gets the end event');
         });
 
         for await (const row of stream) {

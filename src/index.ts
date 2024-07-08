@@ -869,6 +869,10 @@ export class Bigtable {
           .on('error', stream.destroy.bind(stream))
           .on('metadata', stream.emit.bind(stream, 'metadata'))
           .on('request', stream.emit.bind(stream, 'request'))
+          .on('end', (event: any) => {
+            console.log('gax2 emitting the end event');
+            stream.emit.bind(stream, 'end')(event);
+          })
           .pipe(stream);
       });
     }
@@ -889,6 +893,10 @@ export class Bigtable {
           })
           .on('response', response => {
             stream.emit('response', response);
+          })
+          .on('end', (event: any) => {
+            console.log('gax emitting the end event');
+            stream.emit('end', event);
           })
           .pipe(stream);
       });

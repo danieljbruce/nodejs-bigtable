@@ -781,6 +781,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     userStream.end = (chunk?: any, encoding?: any, cb?: () => void) => {
+      console.log('end reaches user stream');
       rowStreamUnpipe(rowStream, userStream);
       userCanceled = true;
       if (activeRequestStream) {
@@ -931,6 +932,14 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       });
 
       rowStream = pumpify.obj([requestStream, chunkTransformer, toRowStream]);
+      chunkTransformer.on('end', (event: any) => {
+        console.log('chunk transformer gets the end event');
+        toRowStream.emit.bind(toRowStream, 'end')(event);
+      });
+      toRowStream.on('end', (event: any) => {
+        console.log('toRowStream gets the end event');
+        rowStream.emit.bind(rowStream, 'end')(event);
+      });
 
       // Retry on "received rst stream" errors
       const isRstStreamError = (error: ServiceError): boolean => {
@@ -947,6 +956,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
 
       rowStream
         .on('error', (error: ServiceError) => {
+          console.log('createreadstream gets the error');
           rowStreamUnpipe(rowStream, userStream);
           activeRequestStream = null;
           if (IGNORED_STATUS_CODES.has(error.code)) {
@@ -979,6 +989,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
           numConsecutiveErrors = 0;
         })
         .on('end', () => {
+          console.log('end event reaches rowStream');
           activeRequestStream = null;
         });
       rowStreamPipe(rowStream, userStream);
