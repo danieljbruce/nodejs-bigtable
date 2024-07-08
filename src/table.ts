@@ -716,10 +716,9 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
    * region_tag:bigtable_api_table_readstream
    */
   createReadStream(opts?: GetRowsOptions) {
-    const options: GetRowsOptions = opts || {};
-    const maxRetries = is.number(this.maxRetries)
-      ? this.maxRetries!
-      : DEFAULT_RETRY_COUNT;
+    console.log('in createReadStream');
+    const options = opts || {};
+    const maxRetries = is.number(this.maxRetries) ? this.maxRetries! : 10;
     let activeRequestStream: AbortableDuplex | null;
 
     let userCanceled = false;
