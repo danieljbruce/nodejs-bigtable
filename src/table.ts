@@ -717,6 +717,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
    */
   createReadStream(opts?: GetRowsOptions) {
     console.log('in createReadStream');
+    console.log('in createReadStream2');
     const options = opts || {};
     const maxRetries = is.number(this.maxRetries) ? this.maxRetries! : 10;
     let activeRequestStream: AbortableDuplex | null;
