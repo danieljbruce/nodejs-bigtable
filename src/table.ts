@@ -726,6 +726,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     let filter: {} | null;
     const rowsLimit = options.limit || 0;
     const hasLimit = rowsLimit !== 0;
+    let rowsRead = 0;
 
     let numConsecutiveErrors = 0;
     let numRequestsMade = 0;
@@ -746,14 +747,12 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     }
 
     let chunkTransformer: ChunkTransformer;
-    let rowStream: Duplex;
+    let rowStream: typeof pumpify;
 
     let userCanceled = false;
     // The key of the last row that was emitted by the per attempt pipeline
     // Note: this must be updated from the operation level userStream to avoid referencing buffered rows that will be
     // discarded in the per attempt subpipeline (rowStream)
-    let lastRowKey = '';
-    let rowsRead = 0;
     const userStream = new PassThrough({
       objectMode: true,
       readableHighWaterMark: 0, // We need to disable readside buffering to allow for acceptable behavior when the end user cancels the stream early.
@@ -763,8 +762,8 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
           callback();
           return;
         }
-        lastRowKey = row.id;
-        rowsRead++;
+        // lastRowKey = row.id;
+        // rowsRead++;
         callback(null, row);
       },
     });
@@ -804,8 +803,12 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       // cancelled the stream in the middle of a retry
       retryTimer = null;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      chunkTransformer = new ChunkTransformer({decode: options.decode} as any);
+      const lastRowKey = chunkTransformer ? chunkTransformer.lastRowKey : '';
+      chunkTransformer = new ChunkTransformer({
+        decode: options.decode,
+        readableHighWaterMark: 0,
+        writableHighWaterMark: 0,
+      } as any);
 
       const reqOpts = {
         tableName: this.name,
@@ -917,6 +920,8 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       activeRequestStream = requestStream!;
 
       const toRowStream = new Transform({
+        readableHighWaterMark: 0,
+        writableHighWaterMark: 0,
         transform: (rowData, _, next) => {
           if (
             userCanceled ||
@@ -925,12 +930,22 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
           ) {
             return next();
           }
+          rowsRead++;
           const row = this.row(rowData.key);
           row.data = rowData.data;
           next(null, row);
         },
         objectMode: true,
       });
+
+      const Pumpify = pumpify.ctor({
+        highWaterMark: 0,
+        objectMode: true,
+        readableHighWaterMark: 0,
+        writableHighWaterMark: 0,
+      });
+      rowStream = new Pumpify();
+      rowStream.setPipeline(requestStream, chunkTransformer, toRowStream);
 
       rowStream = pumpify.obj([requestStream, chunkTransformer, toRowStream]);
 
@@ -975,7 +990,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
             userStream.emit('error', error);
           }
         })
-        .on('data', _ => {
+        .on('data', () => {
           // Reset error count after a successful read so the backoff
           // time won't keep increasing when as stream had multiple errors
           numConsecutiveErrors = 0;
