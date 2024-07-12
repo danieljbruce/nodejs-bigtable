@@ -947,7 +947,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       rowStream = new Pumpify();
       rowStream.setPipeline(requestStream, chunkTransformer, toRowStream);
 
-      rowStream = pumpify.obj([requestStream, chunkTransformer, toRowStream]);
+      // rowStream = pumpify.obj([requestStream, chunkTransformer, toRowStream]);
 
       // Retry on "received rst stream" errors
       const isRstStreamError = (error: ServiceError): boolean => {
