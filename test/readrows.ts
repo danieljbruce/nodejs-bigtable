@@ -409,6 +409,8 @@ describe('Bigtable/ReadRows', () => {
         for await (const row of stream) {
           console.log(`reading row ${row.id}`);
           dataResults.push(row.id);
+          console.log('printing data results');
+          console.log(dataResults);
           // sleep parameter needs to be high enough to produce an error.
           await sleep(4000);
           console.log(`after sleep: reading row ${row.id}`);
