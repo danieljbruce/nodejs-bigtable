@@ -328,7 +328,7 @@ describe('Bigtable/ReadRows', () => {
     });
   });
 
-  it.only('should return row data in the right order', done => {
+  it('should return row data in the right order', done => {
     // 150 rows must be enough to reproduce issues with losing the data and to create backpressure
     const keyFrom = undefined;
     const keyTo = undefined;
@@ -407,9 +407,11 @@ describe('Bigtable/ReadRows', () => {
         });
 
         for await (const row of stream) {
+          console.log(`reading row ${row.id}`);
           dataResults.push(row.id);
           // sleep parameter needs to be high enough to produce an error.
           await sleep(4000);
+          console.log(`after sleep: reading row ${row.id}`);
         }
         const expectedResults = Array.from(Array(150).keys())
           .map(i => '00000000' + i.toString())
