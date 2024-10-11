@@ -1717,7 +1717,7 @@ describe.only('Bigtable', () => {
       });
     });
   });
-  it('Calling sampleRowKeys should actually return row keys that are in the table', async () => {
+  it.only('Calling sampleRowKeys should actually return row keys that are in the table', async () => {
     const tableId = generateId('table');
     const familyName = generateId('column-family-name');
     const rowId = generateId('row-id');
@@ -1741,7 +1741,8 @@ describe.only('Bigtable', () => {
       },
     ]);
     const keys = await table.sampleRowKeys();
-    console.log(keys);
+    // keys[0][0].key is an empty buffer ie. Buffer(0)
+    assert.deepStrictEqual(keys[0][0].key.toString, Buffer.from(rowId));
   });
 });
 
