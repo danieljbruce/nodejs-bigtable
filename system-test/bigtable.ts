@@ -34,7 +34,6 @@ import {Table} from '../src/table.js';
 import {RawFilter} from '../src/filter';
 import {generateId, PREFIX} from './common';
 import {Mutation} from '../src/mutation';
-import {BigtableClient} from '../src/v2';
 
 describe('Bigtable', () => {
   const bigtable = new Bigtable();
@@ -1798,44 +1797,32 @@ describe('Bigtable', () => {
       assert.strictEqual(rows.length, 3);
     });
   });
-  it.only('Calling sampleRowKeys should actually return row keys that are in the table', done => {
-    (async () => {
-      const tableId = generateId('table');
-      const familyName = generateId('column-family-name');
-      const rowId = generateId('row-id');
-      const columnIdInView = generateId('column-id');
-      const cellValueInView = generateId('cell-value');
-      const table = INSTANCE.table(tableId);
-      await table.create({});
-      await table.createFamily(familyName);
-      await table.insert([
-        {
-          key: rowId,
-          data: {
-            [familyName]: {
-              [columnIdInView]: {
-                value: cellValueInView,
-                labels: [],
-                timestamp: 77000,
-              },
+  it.only('Calling sampleRowKeys should actually return row keys that are in the table', async () => {
+    const tableId = generateId('table');
+    const familyName = generateId('column-family-name');
+    const rowId = generateId('row-id');
+    const columnIdInView = generateId('column-id');
+    const cellValueInView = generateId('cell-value');
+    const table = INSTANCE.table(tableId);
+    await table.create({});
+    await table.createFamily(familyName);
+    await table.insert([
+      {
+        key: rowId,
+        data: {
+          [familyName]: {
+            [columnIdInView]: {
+              value: cellValueInView,
+              labels: [],
+              timestamp: 77000,
             },
           },
         },
-      ]);
-      await table.sampleRowKeys(); // Initialize the data client.
-      {
-        // Call sampleRowKeys against the gapic layer.
-        const bigtableClient = bigtable.api['BigtableClient'] as BigtableClient;
-        const gapicCallResponse = await bigtableClient.sampleRowKeys({
-          tableName: table.name.replace('{{projectId}}', bigtable.projectId),
-        });
-        gapicCallResponse.on('data', data => {
-          // keys[0][0].key is an empty buffer ie. Buffer(0)
-          assert.deepStrictEqual(data.rowKey.toString(), rowId);
-          done();
-        });
-      }
-    })();
+      },
+    ]);
+    const keys = await table.sampleRowKeys();
+    // keys[0][0].key is an empty buffer ie. Buffer(0)
+    assert.deepStrictEqual(keys[0][0].key.toString(), rowId);
   });
 });
 
