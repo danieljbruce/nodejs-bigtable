@@ -1797,6 +1797,33 @@ describe('Bigtable', () => {
       assert.strictEqual(rows.length, 3);
     });
   });
+  it.only('Calling sampleRowKeys should actually return row keys that are in the table', async () => {
+    const tableId = generateId('table');
+    const familyName = generateId('column-family-name');
+    const rowId = generateId('row-id');
+    const columnIdInView = generateId('column-id');
+    const cellValueInView = generateId('cell-value');
+    const table = INSTANCE.table(tableId);
+    await table.create({});
+    await table.createFamily(familyName);
+    await table.insert([
+      {
+        key: rowId,
+        data: {
+          [familyName]: {
+            [columnIdInView]: {
+              value: cellValueInView,
+              labels: [],
+              timestamp: 77000,
+            },
+          },
+        },
+      },
+    ]);
+    const keys = await table.sampleRowKeys();
+    // keys[0][0].key is an empty buffer ie. Buffer(0)
+    assert.deepStrictEqual(keys[0][0].key.toString, Buffer.from(rowId));
+  });
 });
 
 function createInstanceConfig(
