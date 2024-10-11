@@ -1822,7 +1822,7 @@ describe('Bigtable', () => {
     ]);
     const keys = await table.sampleRowKeys();
     // keys[0][0].key is an empty buffer ie. Buffer(0)
-    assert.deepStrictEqual(keys[0][0].key.toString, Buffer.from(rowId));
+    assert.deepStrictEqual(keys[0][0].key.toString(), rowId);
   });
 });
 
