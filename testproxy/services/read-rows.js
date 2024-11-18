@@ -58,6 +58,7 @@ const getReadRowsRequest = request => {
 
 const readRows = ({clientMap}) =>
   normalizeCallback(async rawRequest => {
+    console.log('readRows call');
     const request = rawRequest.request;
     const {clientId} = request;
     const readRowsRequest = getReadRowsRequest(request);
@@ -67,10 +68,11 @@ const readRows = ({clientMap}) =>
     const rowsOptions = getRowsOptions(readRowsRequest);
     try {
       const [rows] = await table.getRows(rowsOptions);
-      return {
+      const readRowsResponse = {
         status: {code: grpc.status.OK, details: []},
         rows: rows.map(getRowResponse),
       };
+      return readRowsResponse;
     } catch (e) {
       return {status: e};
     }

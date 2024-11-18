@@ -49,7 +49,6 @@ function startServer(service) {
     grpc.ServerCredentials.createInsecure(),
     () => {
       console.log(`grpc server started on port: ${port}`);
-      server.start();
     }
   );
 }

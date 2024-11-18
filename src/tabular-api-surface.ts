@@ -413,7 +413,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
         numRequestsMade,
         options.gaxOptions
       );
-
+      // On retry = `reqOpts.rows.rowRanges[0].startKeyOpen.toString()`
       const requestStream = this.bigtable.request({
         client: 'BigtableClient',
         method: 'readRows',
@@ -483,9 +483,10 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
             userStream.emit('error', error);
           }
         })
-        .on('data', _ => {
+        .on('data', (data: any) => {
           // Reset error count after a successful read so the backoff
           // time won't keep increasing when as stream had multiple errors
+          console.log(`In createReadStream ${data.id}`);
           numConsecutiveErrors = 0;
         })
         .on('end', () => {

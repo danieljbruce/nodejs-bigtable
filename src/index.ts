@@ -864,8 +864,17 @@ export class Bigtable {
           return;
         }
 
+        function onData(data: any) {
+          // On 2nd data point, chunks
+          console.log('request data');
+          if (data.chunks && data.chunks[0] && data.chunks[0].rowKey) {
+            console.log(`request data ${data.chunks[0].rowKey.toString()}`);
+          }
+          // console.log(data.chunks[0].rowKey.toString());
+        }
         gaxStream = requestFn!();
         gaxStream
+          .on('data', onData)
           .on('error', stream.destroy.bind(stream))
           .on('metadata', stream.emit.bind(stream, 'metadata'))
           .on('request', stream.emit.bind(stream, 'request'))
