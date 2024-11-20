@@ -14,6 +14,7 @@
 
 import {promisifyAll} from '@google-cloud/promisify';
 import arrify = require('arrify');
+import * as stream from 'stream';
 import {Instance} from './instance';
 import {Mutation} from './mutation';
 import {
@@ -230,16 +231,84 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
     if (options.filter) {
       filter = Filter.parse(options.filter);
     }
-
-    let chunkTransformer: ChunkTransformer;
     let rowStream: Duplex;
 
     let userCanceled = false;
     // The key of the last row that was emitted by the per attempt pipeline
     // Note: this must be updated from the operation level userStream to avoid referencing buffered rows that will be
     // discarded in the per attempt subpipeline (rowStream)
-    let lastRowKey = '';
+    let duplicateCheckerKey = '';
     let rowsRead = 0;
+    const toRowStream = new Transform({
+      transform: (rowData, _, next) => {
+        if (
+          userCanceled ||
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (userStream as any)._writableState.ended
+        ) {
+          return next();
+        }
+        rowsRead++;
+        const row = this.row(rowData.key);
+        row.data = rowData.data;
+        next(null, row);
+      },
+      objectMode: true,
+    });
+    // Retry on "received rst stream" errors
+    const isRstStreamError = (error: ServiceError): boolean => {
+      if (error.code === 13 && error.message) {
+        const error_message = (error.message || '').toLowerCase();
+        return (
+          error.code === 13 &&
+          (error_message.includes('rst_stream') ||
+            error_message.includes('rst stream'))
+        );
+      }
+      return false;
+    };
+    // eslint-disable-next-line prefer-const
+    rowStream = new stream.PassThrough();
+    rowStream
+      .on('error', (error: ServiceError) => {
+        // rowStreamUnpipe(rowStream, userStream);
+        if (activeRequestStream) {
+          activeRequestStream.pipe(chunkTransformer);
+        }
+        activeRequestStream = null;
+        if (IGNORED_STATUS_CODES.has(error.code)) {
+          // We ignore the `cancelled` "error", since we are the ones who cause
+          // it when the user calls `.abort()`.
+          userStream.end();
+          return;
+        }
+        numConsecutiveErrors++;
+        numRequestsMade++;
+        if (
+          numConsecutiveErrors <= maxRetries &&
+          (RETRYABLE_STATUS_CODES.has(error.code) || isRstStreamError(error))
+        ) {
+          const backOffSettings =
+            options.gaxOptions?.retry?.backoffSettings ||
+            DEFAULT_BACKOFF_SETTINGS;
+          const nextRetryDelay = getNextDelay(
+            numConsecutiveErrors,
+            backOffSettings
+          );
+          retryTimer = setTimeout(makeNewRequest, nextRetryDelay);
+        } else {
+          userStream.emit('error', error);
+        }
+      })
+      .on('data', (data: any) => {
+        // Reset error count after a successful read so the backoff
+        // time won't keep increasing when as stream had multiple errors
+        console.log(`In createReadStream ${data.id}`);
+        numConsecutiveErrors = 0;
+      })
+      .on('end', () => {
+        activeRequestStream = null;
+      });
     const userStream = new PassThrough({
       objectMode: true,
       readableHighWaterMark: 0, // We need to disable readside buffering to allow for acceptable behavior when the end user cancels the stream early.
@@ -249,7 +318,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
           callback();
           return;
         }
-        if (TableUtils.lessThanOrEqualTo(row.id, lastRowKey)) {
+        if (TableUtils.lessThanOrEqualTo(row.id, duplicateCheckerKey)) {
           /*
           Sometimes duplicate rows reach this point. To avoid delivering
           duplicate rows to the user, rows are thrown away if they don't exceed
@@ -262,8 +331,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
           callback();
           return;
         }
-        lastRowKey = row.id;
-        rowsRead++;
+        duplicateCheckerKey = row.id;
         callback(null, row);
       },
     });
@@ -297,14 +365,20 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       }
       return originalEnd(chunk, encoding, cb);
     };
+    rowStreamPipe(rowStream, userStream);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any,prefer-const
+    const chunkTransformer: ChunkTransformer = new ChunkTransformer({
+      decode: options.decode,
+    } as any);
+    chunkTransformer.pipe(toRowStream);
+    toRowStream.pipe(rowStream);
     const makeNewRequest = () => {
       // Avoid cancelling an expired timer if user
       // cancelled the stream in the middle of a retry
       retryTimer = null;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      chunkTransformer = new ChunkTransformer({decode: options.decode} as any);
+      const lastRowKey = chunkTransformer ? chunkTransformer.lastRowKey : '';
 
       // If the viewName is provided then request will be made for an
       // authorized view. Otherwise, the request is made for a table.
@@ -423,76 +497,7 @@ Please use the format 'prezzy' or '${instance.name}/tables/prezzy'.`);
       });
 
       activeRequestStream = requestStream!;
-
-      const toRowStream = new Transform({
-        transform: (rowData, _, next) => {
-          if (
-            userCanceled ||
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (userStream as any)._writableState.ended
-          ) {
-            return next();
-          }
-          const row = this.row(rowData.key);
-          row.data = rowData.data;
-          next(null, row);
-        },
-        objectMode: true,
-      });
-
-      rowStream = pumpify.obj([requestStream, chunkTransformer, toRowStream]);
-
-      // Retry on "received rst stream" errors
-      const isRstStreamError = (error: ServiceError): boolean => {
-        if (error.code === 13 && error.message) {
-          const error_message = (error.message || '').toLowerCase();
-          return (
-            error.code === 13 &&
-            (error_message.includes('rst_stream') ||
-              error_message.includes('rst stream'))
-          );
-        }
-        return false;
-      };
-
-      rowStream
-        .on('error', (error: ServiceError) => {
-          rowStreamUnpipe(rowStream, userStream);
-          activeRequestStream = null;
-          if (IGNORED_STATUS_CODES.has(error.code)) {
-            // We ignore the `cancelled` "error", since we are the ones who cause
-            // it when the user calls `.abort()`.
-            userStream.end();
-            return;
-          }
-          numConsecutiveErrors++;
-          numRequestsMade++;
-          if (
-            numConsecutiveErrors <= maxRetries &&
-            (RETRYABLE_STATUS_CODES.has(error.code) || isRstStreamError(error))
-          ) {
-            const backOffSettings =
-              options.gaxOptions?.retry?.backoffSettings ||
-              DEFAULT_BACKOFF_SETTINGS;
-            const nextRetryDelay = getNextDelay(
-              numConsecutiveErrors,
-              backOffSettings
-            );
-            retryTimer = setTimeout(makeNewRequest, nextRetryDelay);
-          } else {
-            userStream.emit('error', error);
-          }
-        })
-        .on('data', (data: any) => {
-          // Reset error count after a successful read so the backoff
-          // time won't keep increasing when as stream had multiple errors
-          console.log(`In createReadStream ${data.id}`);
-          numConsecutiveErrors = 0;
-        })
-        .on('end', () => {
-          activeRequestStream = null;
-        });
-      rowStreamPipe(rowStream, userStream);
+      requestStream.pipe(chunkTransformer);
     };
 
     makeNewRequest();
